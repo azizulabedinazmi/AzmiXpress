@@ -1,0 +1,32 @@
+{
+  "name": "azmixpress",
+  "version": "1.0.0",
+  "description": "🚀 Advanced Proxy Server - Download files and browse websites through a powerful proxy with zero restrictions",
+  "private": true,
+  "keywords": ["proxy", "downloader", "web-browser", "file-download", "cors", "bypass"],
+  "author": "Azizul Abedin Azmi <azizulabedinazmi@example.com> (https://github.com/azizulabedinazmi)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/azizulabedinazmi/AzmiXpress.git"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "autoprefixer": "^10.4.16",
+    "next": "^14.2.33",
+    "postcss": "^8.4.32",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "tailwindcss": "^3.3.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.4",
+    "@types/react": "^18.2.45",
+    "@types/react-dom": "^18.2.18",
+    "typescript": "^5.3.3"
+  }
+}
