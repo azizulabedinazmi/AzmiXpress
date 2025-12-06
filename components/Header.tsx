@@ -29,9 +29,6 @@ export default function Header() {
             <Link href="/test" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
               Test Proxy
             </Link>
-            <Link href="/admin" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-              Admin
-            </Link>
             <a 
               href="https://github.com/azizulabedinazmi" 
               target="_blank" 
@@ -79,13 +76,6 @@ export default function Header() {
                 onClick={() => setIsMenuOpen(false)}
               >
                 Test Proxy
-              </Link>
-              <Link 
-                href="/admin" 
-                className="px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-900 rounded-lg transition-colors"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Admin
               </Link>
               <a 
                 href="https://github.com/azizulabedinazmi" 
