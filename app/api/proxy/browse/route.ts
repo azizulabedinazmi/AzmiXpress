@@ -232,6 +232,9 @@ export async function GET(request: NextRequest) {
           'Sec-Fetch-Mode': 'navigate',
           'Sec-Fetch-Site': 'none',
           'Sec-Fetch-User': '?1',
+          'DNT': '1',
+          'Origin': url.origin,
+          'Referer': url.origin + '/',
         },
         signal: controller.signal,
         redirect: 'follow',
@@ -239,18 +242,44 @@ export async function GET(request: NextRequest) {
 
       clearTimeout(timeoutId);
 
+      const contentType = response.headers.get('content-type') || 'text/html';
+      
+      // Try to get content even if status is not ok (some sites return content with 403)
+      let content: string | ArrayBuffer;
+      if (contentType.includes('text/html') || contentType.includes('text/plain')) {
+        content = await response.text();
+      } else {
+        content = await response.arrayBuffer();
+      }
+
       if (!response.ok) {
+        // If we got content but non-200 status, still try to serve it
+        if (contentType.includes('text/html') && typeof content === 'string' && content.length > 0) {
+          const baseUrl = `${url.protocol}//${url.host}`;
+          const appOrigin = request.nextUrl.origin;
+          content = rewriteHtmlContent(content, baseUrl, appOrigin, targetUrl);
+
+          return new NextResponse(content, {
+            status: 200,
+            headers: {
+              'Content-Type': contentType,
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+              'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+              'X-Content-Type-Options': 'nosniff',
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+            },
+          });
+        }
+        
         return NextResponse.json(
           { error: `Failed to fetch: ${response.status} ${response.statusText}` },
           { status: response.status }
         );
       }
-
-      const contentType = response.headers.get('content-type') || 'text/html';
       
       // For HTML, rewrite URLs; for binary content, pass through as-is
-      if (contentType.includes('text/html')) {
-        let content = await response.text();
+      if (contentType.includes('text/html') && typeof content === 'string') {
         const baseUrl = `${url.protocol}//${url.host}`;
         const appOrigin = request.nextUrl.origin;
         content = rewriteHtmlContent(content, baseUrl, appOrigin, targetUrl);
@@ -268,8 +297,7 @@ export async function GET(request: NextRequest) {
         });
       } else {
         // For binary/non-HTML content, pass through as-is
-        const buffer = await response.arrayBuffer();
-        return new NextResponse(buffer, {
+        return new NextResponse(content, {
           status: 200,
           headers: {
             'Content-Type': contentType,
