@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// User agents for rotation
 const USER_AGENTS = [
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -9,6 +8,148 @@ const USER_AGENTS = [
 
 function getRandomUserAgent(): string {
   return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+}
+
+function resolveRelativeUrl(href: string, baseUrl: string): string {
+  try {
+    return new URL(href, baseUrl).href;
+  } catch {
+    return href;
+  }
+}
+
+function isProxyableUrl(href: string): boolean {
+  if (!href) return false;
+  const lower = href.toLowerCase();
+  return !(
+    lower.startsWith('javascript:') ||
+    lower.startsWith('mailto:') ||
+    lower.startsWith('tel:') ||
+    lower.startsWith('data:') ||
+    lower.startsWith('sms:') ||
+    lower.startsWith('about:') ||
+    href === '#' ||
+    href.startsWith('#')
+  );
+}
+
+function rewriteHtmlContent(content: string, baseUrl: string, appOrigin: string, targetUrl: string): string {
+  // Pattern 1: href="..."
+  content = content.replace(/href="([^"]*)"/g, (match, href) => {
+    if (!isProxyableUrl(href)) return match;
+    const absolute = resolveRelativeUrl(href, baseUrl);
+    const proxy = `${appOrigin}/api/proxy/browse?url=${encodeURIComponent(absolute)}`;
+    return `href="${proxy}"`;
+  });
+
+  // Pattern 2: href='...'
+  content = content.replace(/href='([^']*)'/g, (match, href) => {
+    if (!isProxyableUrl(href)) return match;
+    const absolute = resolveRelativeUrl(href, baseUrl);
+    const proxy = `${appOrigin}/api/proxy/browse?url=${encodeURIComponent(absolute)}`;
+    return `href='${proxy}'`;
+  });
+
+  // Pattern 3: action="..."
+  content = content.replace(/action="([^"]*)"/g, (match, action) => {
+    if (!action || !isProxyableUrl(action)) {
+      if (!action) {
+        return `action="${appOrigin}/api/proxy/browse?url=${encodeURIComponent(targetUrl)}"`;
+      }
+      return match;
+    }
+    const absolute = resolveRelativeUrl(action, baseUrl);
+    const proxy = `${appOrigin}/api/proxy/browse?url=${encodeURIComponent(absolute)}`;
+    return `action="${proxy}"`;
+  });
+
+  // Pattern 4: action='...'
+  content = content.replace(/action='([^']*)'/g, (match, action) => {
+    if (!action || !isProxyableUrl(action)) {
+      if (!action) {
+        return `action='${appOrigin}/api/proxy/browse?url=${encodeURIComponent(targetUrl)}'`;
+      }
+      return match;
+    }
+    const absolute = resolveRelativeUrl(action, baseUrl);
+    const proxy = `${appOrigin}/api/proxy/browse?url=${encodeURIComponent(absolute)}`;
+    return `action='${proxy}'`;
+  });
+
+  // Handle forms without action - add proxy action
+  content = content.replace(/<form(?!\s+action)(\s+[^>]*)>/gi, (match, attrs) => {
+    return `<form action="${appOrigin}/api/proxy/browse?url=${encodeURIComponent(targetUrl)}"${attrs}>`;
+  });
+
+  // Add base tag for relative resources
+  content = content.replace(/<head>/i, `<head><base href="${baseUrl}/">`);
+
+  // Inject script for dynamic link handling
+  const script = `<script>
+(function() {
+  const baseUrl = '${baseUrl.replace(/'/g, "\\'")}';
+  const appOrigin = '${appOrigin.replace(/'/g, "\\'")}';
+
+  function encodeUrl(url) {
+    return encodeURIComponent(url);
+  }
+
+  function resolveUrl(href) {
+    try {
+      return new URL(href, baseUrl).href;
+    } catch {
+      return href;
+    }
+  }
+
+  function isProxyable(href) {
+    if (!href) return false;
+    const lower = href.toLowerCase();
+    return !(
+      lower.startsWith('javascript:') ||
+      lower.startsWith('mailto:') ||
+      lower.startsWith('tel:') ||
+      lower.startsWith('data:') ||
+      lower === '#' ||
+      lower.startsWith('#')
+    );
+  }
+
+  function makeProxyUrl(url) {
+    if (!isProxyable(url)) return url;
+    const absolute = resolveUrl(url);
+    return appOrigin + '/api/proxy/browse?url=' + encodeUrl(absolute);
+  }
+
+  // Fix any remaining links on page load
+  function fixLinks() {
+    try {
+      document.querySelectorAll('a[href]').forEach(function(link) {
+        const href = link.getAttribute('href');
+        if (href && isProxyable(href)) {
+          link.href = makeProxyUrl(href);
+        }
+      });
+    } catch(e) {}
+  }
+
+  fixLinks();
+
+  // Monitor for dynamically added links
+  const observer = new MutationObserver(function() {
+    fixLinks();
+  });
+
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true
+  });
+})();
+</script>`;
+
+  content = content.replace(/<\/body>/i, script + '\n</body>');
+
+  return content;
 }
 
 export async function GET(request: NextRequest) {
@@ -23,7 +164,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Validate URL
     let url: URL;
     try {
       url = new URL(targetUrl);
@@ -34,9 +174,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch the target page
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
 
     try {
       const response = await fetch(url.toString(), {
@@ -66,55 +205,16 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      // Get content type
       const contentType = response.headers.get('content-type') || 'text/html';
-
-      // Get the content
       let content = await response.text();
 
-      // If it's HTML, modify it to fix relative URLs
       if (contentType.includes('text/html')) {
         const baseUrl = `${url.protocol}//${url.host}`;
-        
-        // Add base tag to handle relative URLs
-        const baseTag = `<base href="${baseUrl}/" target="_blank">`;
-        content = content.replace(/<head>/i, `<head>${baseTag}`);
-        
-        // Inject a script to handle navigation
-        const script = `
-          <script>
-            (function() {
-              // Intercept link clicks to open in new tab
-              document.addEventListener('click', function(e) {
-                const target = e.target.closest('a');
-                if (target && target.href) {
-                  e.preventDefault();
-                  const proxyUrl = window.location.origin + '/api/proxy/browse?url=' + encodeURIComponent(target.href);
-                  window.open(target.href, '_blank');
-                }
-              }, true);
-              
-              // Intercept form submissions
-              document.addEventListener('submit', function(e) {
-                const form = e.target;
-                if (form.method.toLowerCase() === 'get') {
-                  e.preventDefault();
-                  const formData = new FormData(form);
-                  const params = new URLSearchParams(formData);
-                  const actionUrl = new URL(form.action || window.location.href);
-                  actionUrl.search = params.toString();
-                  const proxyUrl = window.location.origin + '/api/proxy/browse?url=' + encodeURIComponent(actionUrl.toString());
-                  window.location.href = proxyUrl;
-                }
-              }, true);
-            })();
-          </script>
-        `;
-        content = content.replace(/<\/body>/i, `${script}</body>`);
+        const appOrigin = request.nextUrl.origin;
+        content = rewriteHtmlContent(content, baseUrl, appOrigin, targetUrl);
       }
 
-      // Create response with proxied content
-      const proxyResponse = new NextResponse(content, {
+      return new NextResponse(content, {
         status: 200,
         headers: {
           'Content-Type': contentType,
@@ -126,11 +226,9 @@ export async function GET(request: NextRequest) {
         },
       });
 
-      return proxyResponse;
-
     } catch (fetchError: any) {
       clearTimeout(timeoutId);
-      
+
       if (fetchError.name === 'AbortError') {
         return NextResponse.json(
           { error: 'Request timeout - the website took too long to respond' },
@@ -153,7 +251,93 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Handle OPTIONS for CORS preflight
+export async function POST(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams;
+    const targetUrl = searchParams.get('url');
+
+    if (!targetUrl) {
+      return NextResponse.json(
+        { error: 'URL parameter is required' },
+        { status: 400 }
+      );
+    }
+
+    let url: URL;
+    try {
+      url = new URL(targetUrl);
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid URL format' },
+        { status: 400 }
+      );
+    }
+
+    const contentType = request.headers.get('content-type') || 'application/x-www-form-urlencoded';
+    const body = await request.text();
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+    try {
+      const response = await fetch(url.toString(), {
+        method: 'POST',
+        headers: {
+          'User-Agent': getRandomUserAgent(),
+          'Content-Type': contentType,
+        },
+        body,
+        signal: controller.signal,
+        redirect: 'follow',
+      });
+
+      clearTimeout(timeoutId);
+
+      const responseContentType = response.headers.get('content-type') || 'text/html';
+      let content = await response.text();
+
+      if (responseContentType.includes('text/html')) {
+        const baseUrl = `${url.protocol}//${url.host}`;
+        const appOrigin = request.nextUrl.origin;
+        content = rewriteHtmlContent(content, baseUrl, appOrigin, targetUrl);
+      }
+
+      return new NextResponse(content, {
+        status: 200,
+        headers: {
+          'Content-Type': responseContentType,
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+        },
+      });
+
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+
+      if (fetchError.name === 'AbortError') {
+        return NextResponse.json(
+          { error: 'Request timeout' },
+          { status: 504 }
+        );
+      }
+
+      return NextResponse.json(
+        { error: `Failed to fetch content: ${fetchError.message}` },
+        { status: 500 }
+      );
+    }
+
+  } catch (error: any) {
+    console.error('Proxy POST error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error', details: error.message },
+      { status: 500 }
+    );
+  }
+}
+
 export async function OPTIONS(request: NextRequest) {
   return new NextResponse(null, {
     status: 200,
