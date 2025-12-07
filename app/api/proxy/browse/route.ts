@@ -76,8 +76,8 @@ function rewriteHtmlContent(content: string, baseUrl: string, appOrigin: string,
 
   // Rewrite action attributes in forms
   // Handle double-quoted action
-  content = content.replace(/\baction="([^"]*)"/g, (match, action) => {
-    if (!action || !isProxyableUrl(action)) {
+  content = content.replace(/action="([^"]*)"/gi, (match, action) => {
+    if (!action || action.includes('/api/proxy/browse') || !isProxyableUrl(action)) {
       if (!action) {
         return `action="${makeProxyUrl(targetUrl)}"`;
       }
@@ -88,8 +88,8 @@ function rewriteHtmlContent(content: string, baseUrl: string, appOrigin: string,
   });
 
   // Handle single-quoted action
-  content = content.replace(/\baction='([^']*)'/g, (match, action) => {
-    if (!action || !isProxyableUrl(action)) {
+  content = content.replace(/action='([^']*)'/gi, (match, action) => {
+    if (!action || action.includes('/api/proxy/browse') || !isProxyableUrl(action)) {
       if (!action) {
         return `action='${makeProxyUrl(targetUrl)}'`;
       }
