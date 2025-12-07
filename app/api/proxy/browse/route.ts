@@ -37,64 +37,69 @@ function rewriteHtmlContent(content: string, baseUrl: string, appOrigin: string,
   // Add base tag for any remaining relative URLs
   content = content.replace(/<head>/i, `<head><base href="${baseUrl}/">`);
 
+  // Helper to safely create proxy URL
+  const makeProxyUrl = (url: string) => {
+    return `${appOrigin}/api/proxy/browse?url=${encodeURIComponent(url)}`;
+  };
+
   // Rewrite ALL href attributes (links, stylesheets, etc) to go through proxy
+  // Handle double-quoted hrefs
   content = content.replace(/\bhref="([^"]*)"/g, (match, href) => {
     if (!isProxyableUrl(href)) return match;
     const absolute = resolveRelativeUrl(href, baseUrl);
-    const proxy = `${appOrigin}/api/proxy/browse?url=${encodeURIComponent(absolute)}`;
-    return `href="${proxy}"`;
+    return `href="${makeProxyUrl(absolute)}"`;
   });
 
+  // Handle single-quoted hrefs
   content = content.replace(/\bhref='([^']*)'/g, (match, href) => {
     if (!isProxyableUrl(href)) return match;
     const absolute = resolveRelativeUrl(href, baseUrl);
-    const proxy = `${appOrigin}/api/proxy/browse?url=${encodeURIComponent(absolute)}`;
-    return `href='${proxy}'`;
+    return `href='${makeProxyUrl(absolute)}'`;
   });
 
   // Rewrite ALL src attributes (scripts, images, iframes, etc) to go through proxy
+  // Handle double-quoted src
   content = content.replace(/\bsrc="([^"]*)"/g, (match, src) => {
     if (!isProxyableUrl(src)) return match;
     const absolute = resolveRelativeUrl(src, baseUrl);
-    const proxy = `${appOrigin}/api/proxy/browse?url=${encodeURIComponent(absolute)}`;
-    return `src="${proxy}"`;
+    return `src="${makeProxyUrl(absolute)}"`;
   });
 
+  // Handle single-quoted src
   content = content.replace(/\bsrc='([^']*)'/g, (match, src) => {
     if (!isProxyableUrl(src)) return match;
     const absolute = resolveRelativeUrl(src, baseUrl);
-    const proxy = `${appOrigin}/api/proxy/browse?url=${encodeURIComponent(absolute)}`;
-    return `src='${proxy}'`;
+    return `src='${makeProxyUrl(absolute)}'`;
   });
 
   // Rewrite action attributes in forms
+  // Handle double-quoted action
   content = content.replace(/\baction="([^"]*)"/g, (match, action) => {
     if (!action || !isProxyableUrl(action)) {
       if (!action) {
-        return `action="${appOrigin}/api/proxy/browse?url=${encodeURIComponent(targetUrl)}"`;
+        return `action="${makeProxyUrl(targetUrl)}"`;
       }
       return match;
     }
     const absolute = resolveRelativeUrl(action, baseUrl);
-    const proxy = `${appOrigin}/api/proxy/browse?url=${encodeURIComponent(absolute)}`;
-    return `action="${proxy}"`;
+    return `action="${makeProxyUrl(absolute)}"`;
   });
 
+  // Handle single-quoted action
   content = content.replace(/\baction='([^']*)'/g, (match, action) => {
     if (!action || !isProxyableUrl(action)) {
       if (!action) {
-        return `action='${appOrigin}/api/proxy/browse?url=${encodeURIComponent(targetUrl)}'`;
+        return `action='${makeProxyUrl(targetUrl)}'`;
       }
       return match;
     }
     const absolute = resolveRelativeUrl(action, baseUrl);
-    const proxy = `${appOrigin}/api/proxy/browse?url=${encodeURIComponent(absolute)}`;
-    return `action='${proxy}'`;
+    return `action='${makeProxyUrl(absolute)}'`;
   });
 
   // Handle forms without action - add proxy action
   content = content.replace(/<form(?!\s+action)(\s+[^>]*)>/gi, (match, attrs) => {
-    return `<form action="${appOrigin}/api/proxy/browse?url=${encodeURIComponent(targetUrl)}"${attrs}>`;
+    return `<form action="${makeProxyUrl(targetUrl)}"${attrs}>`;
   });
 
   // Inject script for dynamic link handling
@@ -171,7 +176,22 @@ function rewriteHtmlContent(content: string, baseUrl: string, appOrigin: string,
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const targetUrl = searchParams.get('url');
+    let targetUrl = searchParams.get('url');
+
+    // If url parameter not found, try to construct it from other parameters
+    // This handles cases where the proxied URL's query params interfere
+    if (!targetUrl) {
+      // Get the full query string and try to extract the url parameter more carefully
+      const queryString = request.nextUrl.search.substring(1);
+      const urlMatch = queryString.match(/url=([^&]+)/);
+      if (urlMatch && urlMatch[1]) {
+        try {
+          targetUrl = decodeURIComponent(urlMatch[1]);
+        } catch {
+          targetUrl = urlMatch[1];
+        }
+      }
+    }
 
     if (!targetUrl) {
       return NextResponse.json(
