@@ -43,31 +43,33 @@ function rewriteHtmlContent(content: string, baseUrl: string, appOrigin: string,
   };
 
   // Rewrite ALL href attributes (links, stylesheets, etc) to go through proxy
-  // Handle double-quoted hrefs
-  content = content.replace(/\bhref="([^"]*)"/g, (match, href) => {
-    if (!isProxyableUrl(href)) return match;
+  // Handle double-quoted hrefs - match more aggressively
+  content = content.replace(/href="([^"]*)"/gi, (match, href) => {
+    // Skip if already proxied or not proxyable
+    if (href.includes('/api/proxy/browse') || !isProxyableUrl(href)) return match;
     const absolute = resolveRelativeUrl(href, baseUrl);
     return `href="${makeProxyUrl(absolute)}"`;
   });
 
   // Handle single-quoted hrefs
-  content = content.replace(/\bhref='([^']*)'/g, (match, href) => {
-    if (!isProxyableUrl(href)) return match;
+  content = content.replace(/href='([^']*)'/gi, (match, href) => {
+    // Skip if already proxied or not proxyable
+    if (href.includes('/api/proxy/browse') || !isProxyableUrl(href)) return match;
     const absolute = resolveRelativeUrl(href, baseUrl);
     return `href='${makeProxyUrl(absolute)}'`;
   });
 
   // Rewrite ALL src attributes (scripts, images, iframes, etc) to go through proxy
   // Handle double-quoted src
-  content = content.replace(/\bsrc="([^"]*)"/g, (match, src) => {
-    if (!isProxyableUrl(src)) return match;
+  content = content.replace(/src="([^"]*)"/gi, (match, src) => {
+    if (src.includes('/api/proxy/browse') || !isProxyableUrl(src)) return match;
     const absolute = resolveRelativeUrl(src, baseUrl);
     return `src="${makeProxyUrl(absolute)}"`;
   });
 
   // Handle single-quoted src
-  content = content.replace(/\bsrc='([^']*)'/g, (match, src) => {
-    if (!isProxyableUrl(src)) return match;
+  content = content.replace(/src='([^']*)'/gi, (match, src) => {
+    if (src.includes('/api/proxy/browse') || !isProxyableUrl(src)) return match;
     const absolute = resolveRelativeUrl(src, baseUrl);
     return `src='${makeProxyUrl(absolute)}'`;
   });
