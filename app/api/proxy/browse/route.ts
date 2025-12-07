@@ -34,49 +34,62 @@ function isProxyableUrl(href: string): boolean {
 }
 
 function rewriteHtmlContent(content: string, baseUrl: string, appOrigin: string, targetUrl: string): string {
-  // Add base tag FIRST for relative resources (images, css, js)
-  // This handles all relative URLs for resources without us having to rewrite them
+  // Add base tag for any remaining relative URLs
   content = content.replace(/<head>/i, `<head><base href="${baseUrl}/">`);
 
-  // ONLY rewrite href for <a> tags (navigation links)
-  // Pattern: match <a tag, capture everything before href, then capture href value
-  content = content.replace(/<a\s+([^>]*?)\bhref="([^"]*)"/g, (match, attrs, href) => {
+  // Rewrite ALL href attributes (links, stylesheets, etc) to go through proxy
+  content = content.replace(/\bhref="([^"]*)"/g, (match, href) => {
     if (!isProxyableUrl(href)) return match;
     const absolute = resolveRelativeUrl(href, baseUrl);
     const proxy = `${appOrigin}/api/proxy/browse?url=${encodeURIComponent(absolute)}`;
-    return `<a ${attrs}href="${proxy}"`;
+    return `href="${proxy}"`;
   });
 
-  content = content.replace(/<a\s+([^>]*?)\bhref='([^']*)'/g, (match, attrs, href) => {
+  content = content.replace(/\bhref='([^']*)'/g, (match, href) => {
     if (!isProxyableUrl(href)) return match;
     const absolute = resolveRelativeUrl(href, baseUrl);
     const proxy = `${appOrigin}/api/proxy/browse?url=${encodeURIComponent(absolute)}`;
-    return `<a ${attrs}href='${proxy}'`;
+    return `href='${proxy}'`;
   });
 
-  // Rewrite form actions only (not other elements)
-  content = content.replace(/<form\s+([^>]*?)\baction="([^"]*)"/g, (match, attrs, action) => {
+  // Rewrite ALL src attributes (scripts, images, iframes, etc) to go through proxy
+  content = content.replace(/\bsrc="([^"]*)"/g, (match, src) => {
+    if (!isProxyableUrl(src)) return match;
+    const absolute = resolveRelativeUrl(src, baseUrl);
+    const proxy = `${appOrigin}/api/proxy/browse?url=${encodeURIComponent(absolute)}`;
+    return `src="${proxy}"`;
+  });
+
+  content = content.replace(/\bsrc='([^']*)'/g, (match, src) => {
+    if (!isProxyableUrl(src)) return match;
+    const absolute = resolveRelativeUrl(src, baseUrl);
+    const proxy = `${appOrigin}/api/proxy/browse?url=${encodeURIComponent(absolute)}`;
+    return `src='${proxy}'`;
+  });
+
+  // Rewrite action attributes in forms
+  content = content.replace(/\baction="([^"]*)"/g, (match, action) => {
     if (!action || !isProxyableUrl(action)) {
       if (!action) {
-        return `<form ${attrs}action="${appOrigin}/api/proxy/browse?url=${encodeURIComponent(targetUrl)}"`;
+        return `action="${appOrigin}/api/proxy/browse?url=${encodeURIComponent(targetUrl)}"`;
       }
       return match;
     }
     const absolute = resolveRelativeUrl(action, baseUrl);
     const proxy = `${appOrigin}/api/proxy/browse?url=${encodeURIComponent(absolute)}`;
-    return `<form ${attrs}action="${proxy}"`;
+    return `action="${proxy}"`;
   });
 
-  content = content.replace(/<form\s+([^>]*?)\baction='([^']*)'/g, (match, attrs, action) => {
+  content = content.replace(/\baction='([^']*)'/g, (match, action) => {
     if (!action || !isProxyableUrl(action)) {
       if (!action) {
-        return `<form ${attrs}action='${appOrigin}/api/proxy/browse?url=${encodeURIComponent(targetUrl)}'`;
+        return `action='${appOrigin}/api/proxy/browse?url=${encodeURIComponent(targetUrl)}'`;
       }
       return match;
     }
     const absolute = resolveRelativeUrl(action, baseUrl);
     const proxy = `${appOrigin}/api/proxy/browse?url=${encodeURIComponent(absolute)}`;
-    return `<form ${attrs}action='${proxy}'`;
+    return `action='${proxy}'`;
   });
 
   // Handle forms without action - add proxy action
