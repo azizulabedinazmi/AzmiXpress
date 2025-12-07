@@ -34,46 +34,49 @@ function isProxyableUrl(href: string): boolean {
 }
 
 function rewriteHtmlContent(content: string, baseUrl: string, appOrigin: string, targetUrl: string): string {
-  // Pattern 1: href="..."
-  content = content.replace(/href="([^"]*)"/g, (match, href) => {
+  // Add base tag FIRST for relative resources (images, css, js)
+  // This handles all relative URLs for resources without us having to rewrite them
+  content = content.replace(/<head>/i, `<head><base href="${baseUrl}/">`);
+
+  // ONLY rewrite href for <a> tags (navigation links)
+  // Pattern: match <a tag, capture everything before href, then capture href value
+  content = content.replace(/<a\s+([^>]*?)\bhref="([^"]*)"/g, (match, attrs, href) => {
     if (!isProxyableUrl(href)) return match;
     const absolute = resolveRelativeUrl(href, baseUrl);
     const proxy = `${appOrigin}/api/proxy/browse?url=${encodeURIComponent(absolute)}`;
-    return `href="${proxy}"`;
+    return `<a ${attrs}href="${proxy}"`;
   });
 
-  // Pattern 2: href='...'
-  content = content.replace(/href='([^']*)'/g, (match, href) => {
+  content = content.replace(/<a\s+([^>]*?)\bhref='([^']*)'/g, (match, attrs, href) => {
     if (!isProxyableUrl(href)) return match;
     const absolute = resolveRelativeUrl(href, baseUrl);
     const proxy = `${appOrigin}/api/proxy/browse?url=${encodeURIComponent(absolute)}`;
-    return `href='${proxy}'`;
+    return `<a ${attrs}href='${proxy}'`;
   });
 
-  // Pattern 3: action="..."
-  content = content.replace(/action="([^"]*)"/g, (match, action) => {
+  // Rewrite form actions only (not other elements)
+  content = content.replace(/<form\s+([^>]*?)\baction="([^"]*)"/g, (match, attrs, action) => {
     if (!action || !isProxyableUrl(action)) {
       if (!action) {
-        return `action="${appOrigin}/api/proxy/browse?url=${encodeURIComponent(targetUrl)}"`;
+        return `<form ${attrs}action="${appOrigin}/api/proxy/browse?url=${encodeURIComponent(targetUrl)}"`;
       }
       return match;
     }
     const absolute = resolveRelativeUrl(action, baseUrl);
     const proxy = `${appOrigin}/api/proxy/browse?url=${encodeURIComponent(absolute)}`;
-    return `action="${proxy}"`;
+    return `<form ${attrs}action="${proxy}"`;
   });
 
-  // Pattern 4: action='...'
-  content = content.replace(/action='([^']*)'/g, (match, action) => {
+  content = content.replace(/<form\s+([^>]*?)\baction='([^']*)'/g, (match, attrs, action) => {
     if (!action || !isProxyableUrl(action)) {
       if (!action) {
-        return `action='${appOrigin}/api/proxy/browse?url=${encodeURIComponent(targetUrl)}'`;
+        return `<form ${attrs}action='${appOrigin}/api/proxy/browse?url=${encodeURIComponent(targetUrl)}'`;
       }
       return match;
     }
     const absolute = resolveRelativeUrl(action, baseUrl);
     const proxy = `${appOrigin}/api/proxy/browse?url=${encodeURIComponent(absolute)}`;
-    return `action='${proxy}'`;
+    return `<form ${attrs}action='${proxy}'`;
   });
 
   // Handle forms without action - add proxy action
@@ -81,12 +84,12 @@ function rewriteHtmlContent(content: string, baseUrl: string, appOrigin: string,
     return `<form action="${appOrigin}/api/proxy/browse?url=${encodeURIComponent(targetUrl)}"${attrs}>`;
   });
 
-  // Add base tag for relative resources
-  content = content.replace(/<head>/i, `<head><base href="${baseUrl}/">`);
-
   // Inject script for dynamic link handling
   const script = `<script>
 (function() {
+  // Extract the actual target URL from the query parameter
+  const url = new URL(window.location.href);
+  const targetUrl = url.searchParams.get('url') || '${targetUrl.replace(/'/g, "\\'")}';
   const baseUrl = '${baseUrl.replace(/'/g, "\\'")}';
   const appOrigin = '${appOrigin.replace(/'/g, "\\'")}';
 
@@ -126,7 +129,7 @@ function rewriteHtmlContent(content: string, baseUrl: string, appOrigin: string,
     try {
       document.querySelectorAll('a[href]').forEach(function(link) {
         const href = link.getAttribute('href');
-        if (href && isProxyable(href)) {
+        if (href && isProxyable(href) && !href.includes('/api/proxy/browse')) {
           link.href = makeProxyUrl(href);
         }
       });
