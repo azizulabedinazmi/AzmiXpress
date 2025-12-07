@@ -195,7 +195,11 @@ export async function GET(request: NextRequest) {
 
     if (!targetUrl) {
       return NextResponse.json(
-        { error: 'URL parameter is required' },
+        { 
+          error: 'URL parameter is required',
+          example: 'Usage: /api/proxy/browse?url=https%3A%2F%2Fexample.com',
+          documentation: 'Pass the target URL as an encoded query parameter: ?url=<encoded-url>'
+        },
         { status: 400 }
       );
     }
@@ -342,7 +346,11 @@ export async function POST(request: NextRequest) {
 
     if (!targetUrl) {
       return NextResponse.json(
-        { error: 'URL parameter is required' },
+        { 
+          error: 'URL parameter is required',
+          example: 'Usage: /api/proxy/browse?url=https%3A%2F%2Fexample.com',
+          documentation: 'Pass the target URL as an encoded query parameter: ?url=<encoded-url>'
+        },
         { status: 400 }
       );
     }
