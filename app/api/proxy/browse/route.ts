@@ -222,25 +222,40 @@ export async function GET(request: NextRequest) {
       }
 
       const contentType = response.headers.get('content-type') || 'text/html';
-      let content = await response.text();
-
+      
+      // For HTML, rewrite URLs; for binary content, pass through as-is
       if (contentType.includes('text/html')) {
+        let content = await response.text();
         const baseUrl = `${url.protocol}//${url.host}`;
         const appOrigin = request.nextUrl.origin;
         content = rewriteHtmlContent(content, baseUrl, appOrigin, targetUrl);
-      }
 
-      return new NextResponse(content, {
-        status: 200,
-        headers: {
-          'Content-Type': contentType,
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-          'X-Content-Type-Options': 'nosniff',
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-        },
-      });
+        return new NextResponse(content, {
+          status: 200,
+          headers: {
+            'Content-Type': contentType,
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            'X-Content-Type-Options': 'nosniff',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+          },
+        });
+      } else {
+        // For binary/non-HTML content, pass through as-is
+        const buffer = await response.arrayBuffer();
+        return new NextResponse(buffer, {
+          status: 200,
+          headers: {
+            'Content-Type': contentType,
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            'X-Content-Type-Options': 'nosniff',
+            'Cache-Control': 'public, max-age=86400',
+          },
+        });
+      }
 
     } catch (fetchError: any) {
       clearTimeout(timeoutId);
