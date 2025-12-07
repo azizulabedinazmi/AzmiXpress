@@ -155,8 +155,8 @@ const ALLOWED_DOMAINS = [
   '.*' // Allow all domains
 ];
 
-// Maximum file size to handle (50MB - Vercel has limits)
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+// Maximum file size to handle (raised to 1GB to allow large media)
+const MAX_FILE_SIZE = 1024 * 1024 * 1024; // 1GB
 
 export async function GET(request: NextRequest) {
   try {
