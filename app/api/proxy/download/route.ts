@@ -156,7 +156,7 @@ const ALLOWED_DOMAINS = [
 ];
 
 // Maximum file size to handle (raised to 1GB to allow large media)
-const MAX_FILE_SIZE = 1024 * 1024 * 1024; // 1GB
+const MAX_FILE_SIZE = 4 * 1024 * 1024 * 1024; // 4GB
 
 export async function GET(request: NextRequest) {
   try {
