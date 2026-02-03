@@ -3,7 +3,14 @@
   "version": "1.0.0",
   "description": "🚀 Advanced Proxy Server - Download files and browse websites through a powerful proxy with zero restrictions",
   "private": true,
-  "keywords": ["proxy", "downloader", "web-browser", "file-download", "cors", "bypass"],
+  "keywords": [
+    "proxy",
+    "downloader",
+    "web-browser",
+    "file-download",
+    "cors",
+    "bypass"
+  ],
   "author": "Azizul Abedin Azmi <azizulabedinazmi@example.com> (https://github.com/azizulabedinazmi)",
   "repository": {
     "type": "git",
@@ -17,7 +24,7 @@
   },
   "dependencies": {
     "autoprefixer": "^10.4.16",
-    "next": "^14.2.33",
+    "next": "14.2.35",
     "postcss": "^8.4.32",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
