@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 320" width="1200" height="320">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b0420"/><stop offset="1" stop-color="#1a0b3d"/>
+    </linearGradient>
+    <linearGradient id="beam" x1="0" x2="1">
+      <stop offset="0" stop-color="#8b5cf6" stop-opacity="0"/><stop offset=".5" stop-color="#c084fc"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="title" x1="0" x2="1">
+      <stop offset="0" stop-color="#e9d5ff"/><stop offset="1" stop-color="#67e8f9"/>
+    </linearGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#7c3aed" stroke-opacity=".15"/></pattern>
+    <style>
+      .packet{animation:fly 2.6s linear infinite}
+      .p2{animation-delay:-.9s}.p3{animation-delay:-1.7s}
+      @keyframes fly{from{transform:translateX(-200px)}to{transform:translateX(1400px)}}
+    </style>
+  </defs>
+  <rect width="1200" height="320" fill="url(#bg)"/>
+  <rect width="1200" height="320" fill="url(#grid)"/>
+  <g stroke="url(#beam)" stroke-width="2">
+    <line x1="0" y1="60" x2="1200" y2="60"/><line x1="0" y1="260" x2="1200" y2="260"/>
+    <line x1="0" y1="285" x2="1200" y2="285" stroke-opacity=".5"/>
+  </g>
+  <g filter="url(#glow)">
+    <rect class="packet" x="0" y="56" width="70" height="8" rx="4" fill="#c084fc"/>
+    <rect class="packet p2" x="0" y="256" width="110" height="8" rx="4" fill="#22d3ee"/>
+    <rect class="packet p3" x="0" y="281" width="50" height="8" rx="4" fill="#f0abfc"/>
+  </g>
+  <!-- client → proxy → web -->
+  <g font-family="Consolas, Menlo, monospace" font-size="14" fill="#a5b4fc">
+    <rect x="860" y="105" width="90" height="44" rx="8" fill="none" stroke="#a78bfa"/><text x="905" y="132" text-anchor="middle">client</text>
+    <rect x="975" y="105" width="90" height="44" rx="8" fill="#7c3aed" fill-opacity=".35" stroke="#c084fc" filter="url(#glow)"/><text x="1020" y="132" text-anchor="middle" fill="#fff">proxy</text>
+    <circle cx="1130" cy="127" r="24" fill="none" stroke="#22d3ee"/><ellipse cx="1130" cy="127" rx="10" ry="24" fill="none" stroke="#22d3ee"/><line x1="1106" y1="127" x2="1154" y2="127" stroke="#22d3ee"/>
+    <path d="M950 127h25M1065 127h41" stroke="#e9d5ff" stroke-dasharray="4 4"/>
+    <text x="1005" y="190" text-anchor="middle" fill="#67e8f9">browse · download · test</text>
+  </g>
+  <text x="70" y="160" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="78" font-weight="800" font-style="italic" fill="url(#title)" filter="url(#glow)">AzmiXpress</text>
+  <text x="74" y="205" font-family="Consolas, Menlo, monospace" font-size="20" fill="#c4b5fd" letter-spacing="3">// ADVANCED PROXY SERVER  ⚡  NEXT.JS + TYPESCRIPT</text>
+</svg>
